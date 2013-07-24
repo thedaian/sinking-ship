@@ -1,32 +1,44 @@
 var Map = {
-    _map: {},
+    _map: [{}],
 	_currentDeck: 1,
-	
-	init: function() {
-		this._loadMap();
+	Size: {
+		w: 0,
+		h: 0
 	},
 	
-    _loadMap: function() {
-		var deckName = "deck" + this._currentDeck;		
+	init: function() {
+		Camera.init();
+		this._loadMap(0);
+		this._map.push({});
+		this._loadMap(1);
+		this._map.push({});
+		this._loadMap(2);
+		this._map.push({});
+		this._loadMap(3);
+		Water.addWater(2,13, 0);
+	},	
+	
+    _loadMap: function(z) {
+		var deckName = "deck" + z;		
 		
 		for (var j=0;j<Maps[deckName].length;j++) {
 			var line = Maps[deckName][j];
 			if (!line.length) { continue; }
-			//height++;
-			//width = Math.max(width, line.length);
+			
+			this.Size.h++;
+			this.Size.w = Math.max(this.Size.w, line.length);
 			
 			for (var i=0;i<line.length;i++) {
 				var ch = line.charAt(i);
 				if (ch == " ") { continue; }
 				var key = i+","+j;
-				this._map[key] = this._createMapCell(Maps.tiles[ch]);
+				this._map[z][key] = this._createMapCell(Maps.tiles[ch], i, j, z);
 			}
 		}
-		
-		Water.addWater(2,13);
+
     },
 	
-	_createMapCell: function(template)
+	_createMapCell: function(template, x, y, z)
 	{
 		var cell = {};
 		if ("id" in template) { cell._id = template.id; }
@@ -53,17 +65,42 @@ var Map = {
 		cell._blocksLight = template.blocksLight;
 		cell._blocksMovement = template.blocksMovement;
 		cell._wetness = 0;
+		if(template.hasOwnProperty('action'))
+		{
+			cell.action = template.action;
+		}
+		cell._position = { "x": x, "y": y, "z": z };
 		
 		return cell;
 	},
 	
-	isPassable: function(key)
+	isPassable: function(key, z)
+	{ 
+		return (this._map[z][key]._blocksMovement == 0);
+	},
+	
+	hasAction: function(key, z)
 	{
-		return (this._map[key]._blocksMovement == 0);
+		return (this._map[z][key].hasOwnProperty('action'));
+	},
+	
+	floorUp: function(actor)
+	{
+		actor.moveTo(this._position.x-1, this._position.y+1, this._position.z+1);
+	},
+	
+	floorDown: function(actor)
+	{
+		actor.moveTo(this._position.x-1, this._position.y-1, this._position.z-1);
+	},
+	
+	performAction: function(key, z, actor)
+	{
+		this._map[z][key].action(actor);
 	},
     
     draw: function() {
-        for (var key in this._map) {
+        for (var key in this._map[Camera.z]) {
             this.drawSingleTile(key);
         }
     },
@@ -71,11 +108,12 @@ var Map = {
 	drawSingleTile: function(key) {
 		var parts = key.split(",");
 		var x = parseInt(parts[0]);
+		if(x > Camera.Max.x)
+			return;
 		var y = parseInt(parts[1]);
-		if(this._map[key].backgroundColor) {
-			Game.display.draw(x, y, this._map[key]._char, ROT.Color.toRGB(this._map[key]._diffuse), ROT.Color.toRGB(this._map[key].backgroundColor));
-		} else {
-			Game.display.draw(x, y, this._map[key]._char, ROT.Color.toRGB(this._map[key]._diffuse));
-		}
+		if(y > Camera.Max.y)
+			return;
+			
+		Camera.draw(x, y, Camera.z, this._map[Camera.z][key]._char, ROT.Color.toRGB(this._map[Camera.z][key]._diffuse));
 	}
 };

@@ -1,33 +1,46 @@
 var Player = {
 	_x: 0,
 	_y: 0,
+	_z: 0,
 	color: "#ff0",
+	_name: "Player",
 
 	init: function()
 	{
 		this._x = 3;
 		this._y = 7;
+		this._z = 0;
 		this.draw();
 	},
 	
 	draw: function()
 	{
-		var key = this._x+","+this._y;
-		if(Map._map[key].backgroundColor) {
-			Game.display.draw(this._x, this._y, "@", this.color, ROT.Color.toRGB(Map._map[key].backgroundColor));
-		} else {
-			Game.display.draw(this._x, this._y, "@", this.color);
-		}
+		Camera.draw(this._x, this._y, this._z, "@", this.color);
+	},
+	
+	moveTo: function(x, y, z)
+	{
+		this._x = x;
+		this._y = y;
+		this._z = z;
+		Camera.z = z;
+		Map.draw();
+		this.draw();
 	},
 	
 	act: function()
 	{
 		var key = this._x+","+this._y;
 		
-		if(Water.isWet(key))
+		if(Map.hasAction(key, this._z))
 		{
-			var wetness = Water.getWetness(key);
-			document.getElementById("status").innerHTML = "The floor currently "+Water.toString(wetness)+".";
+			Map.performAction(key, this._z, this);
+		}
+		
+		if(Water.isWet(key, this._z))
+		{
+			var wetness = Water.getWetness(key, this._z);
+			Messages.status("The floor currently "+Water.toString(wetness)+".");
 			
 			if(wetness == Water.MAX)
 			{
@@ -36,7 +49,7 @@ var Player = {
 				Game.lose();
 			}
 		} else {
-			document.getElementById("status").innerHTML = "The floor is currently dry.";
+			Messages.status("The floor is currently dry.");
 		}
 		
 		Game.engine.lock();
@@ -65,13 +78,19 @@ var Player = {
 		var newY = this._y + diff[1];
 		
 		var newKey = newX + "," + newY;
-		if (!(newKey in Map._map)) { return; } /* cannot move in this direction */
-		if(Map.isPassable(newKey)) { 
-			Map.drawSingleTile(this._x+","+this._y);
+		if (!(newKey in Map._map[this._z])) { return; } /* cannot move in this direction */
+		
+		if(Map.isPassable(newKey, this._z)) {
+			if(!Camera.recenter(newX, newY))
+			{
+				Map.drawSingleTile(this._x+","+this._y);
+			} else { 
+				Map.draw();
+			}
 			
 			this._x = newX;
 			this._y = newY;	
-		}
+		}		
 		this.draw();
 		Game.turns++;
 		
@@ -79,3 +98,5 @@ var Player = {
 		Game.engine.unlock();
 	}
 };
+
+Player.prototype = Entity;
